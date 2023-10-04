@@ -25,11 +25,11 @@ const Auth = () => {
       // Add user information to Firestore
       const usersCollection = collection(db, 'users');
       const userDocRef = doc(usersCollection, user.uid);
-    console.log('Userdocref',usersCollection)
+
       await setDoc(userDocRef, {
         uid: user.uid,
         email: email,
-        balance:1000, // Initial balance
+        balance: 1000, // Initial balance
       });
 
       console.log('User details added to Firestore');
@@ -76,6 +76,7 @@ const Auth = () => {
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <label>Password: </label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+       
             <button onClick={handleSignUp}>Sign Up</button>
             <button onClick={handleSignIn}>Sign In</button>
           </div>
