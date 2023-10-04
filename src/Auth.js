@@ -25,11 +25,11 @@ const Auth = () => {
       // Add user information to Firestore
       const usersCollection = collection(db, 'users');
       const userDocRef = doc(usersCollection, user.uid);
-
+    console.log('Userdocref',usersCollection)
       await setDoc(userDocRef, {
         uid: user.uid,
         email: email,
-        balance: 1000, // Initial balance
+        balance:1000, // Initial balance
       });
 
       console.log('User details added to Firestore');

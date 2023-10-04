@@ -1,12 +1,13 @@
 // CoinTransfer.js
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from './Firebase';
 
 const CoinTransfer = () => {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [amount, setAmount] = useState('');
-  const [userBalance, setUserBalance] = useState(null);
+  const [userBalance, setUserBalance] = useState(1000);
+  const [recipient, setRecipient] = useState(null);
 
   useEffect(() => {
     const fetchUserBalance = async () => {
@@ -14,16 +15,18 @@ const CoinTransfer = () => {
         const user = auth.currentUser;
 
         if (user) {
-          const userDoc = doc(db, 'users', user.uid);
-          const userSnapshot = await getDoc(userDoc);
+          const userDoc = doc(db, 'users', user.email); // Assuming email is used as the document ID
+          const unsubscribe = onSnapshot(userDoc, (doc) => {
+            if (doc.exists()) {
+              const balance = doc.data().balance;
+              console.log('Fetched user balance:', balance);
+              setUserBalance(balance);
+            } else {
+              console.warn('User document not found');
+            }
+          });
 
-          if (userSnapshot.exists()) {
-            const balance = userSnapshot.data().balance;
-            console.log('Fetched user balance:', balance);
-            setUserBalance(balance);
-          } else {
-            console.warn('User document not found');
-          }
+          return () => unsubscribe();
         } else {
           console.error('User not authenticated');
         }
@@ -34,6 +37,30 @@ const CoinTransfer = () => {
 
     fetchUserBalance();
   }, []); // Run only once on component mount
+
+  const fetchRecipientDetails = async () => {
+    try {
+      console.log('Fetching recipient details for email:', recipientEmail);
+
+      const recipientQuery = await getDoc(doc(db, 'users', recipientEmail));
+
+      if (recipientQuery.exists()) {
+        const recipientData = recipientQuery.data();
+        console.log('Fetched recipient details:', recipientData);
+        setRecipient(recipientData);
+      } else {
+        console.warn('Recipient document not found for email:', recipientEmail);
+      }
+    } catch (error) {
+      console.error('Error fetching recipient details:', error.message);
+    }
+  };
+
+  useEffect(() => {
+    if (recipientEmail) {
+      fetchRecipientDetails();
+    }
+  }, [recipientEmail]);
 
   const handleTransfer = async () => {
     try {
@@ -58,24 +85,19 @@ const CoinTransfer = () => {
         return;
       }
 
-      // Fetch recipient user by email
-      const recipientQuery = await getDoc(doc(db, 'users', 'your-collection-id', 'your-document-id')); // Replace with your actual collection and document IDs
-      const recipient = recipientQuery.data();
-
-      // Update recipient balance
-      if (recipient) {
-        const recipientBalance = recipient.balance + transferAmount;
-        await updateDoc(doc(db, 'users', 'your-collection-id', 'your-document-id'), { balance: recipientBalance }); // Replace with your actual collection and document IDs
-        console.log('Recipient balance updated successfully');
-      } else {
-        console.error('Recipient not found');
+      // Check if recipient details are available
+      if (!recipient) {
+        console.error('Recipient details not available');
         return;
       }
 
+      // Update recipient balance
+      const recipientBalance = recipient.balance + transferAmount;
+      await updateDoc(doc(db, 'users', recipientEmail), { balance: recipientBalance });
+
       // Update user balance
       const updatedUserBalance = userBalance - transferAmount;
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), { balance: updatedUserBalance });
-      console.log('User balance updated successfully');
+      await updateDoc(doc(db, 'users', auth.currentUser.email), { balance: updatedUserBalance });
 
       // Update local state
       setUserBalance(updatedUserBalance);
@@ -99,7 +121,7 @@ const CoinTransfer = () => {
         <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </div>
       <div>
-        <p>Your Balance: {userBalance !== null ? userBalance : 'Loading...'}</p>
+        <p>Your Balance: {userBalance !== 1000 ? userBalance : 'Loading...'}</p>
       </div>
       <div>
         <button onClick={handleTransfer}>Transfer Coins</button>
